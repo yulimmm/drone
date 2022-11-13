@@ -1,59 +1,72 @@
 from utils import *
+import numpy as np
 import time
 import cv2
-#import pandas as pd
-#import numpy as np
-
-'''
-def select_api():
-    df = pd.read_csv("/content/경기도_성남시_주정차금지(지정)구역_20220428_1651144031393_205491.csv", encoding='cp949')
-    df.head(3)
-'''
 
 def start_drone(): #차 인식하기 위해 드론 띄우기.
     myDrone.takeoff()
-    time.sleep(5)
+    time.sleep(2)
+    myDrone.move_up(20) #x: 20-500
+    time.sleep(2)
 
-def cardetect():
-    # Create our body classifier
-    car_classifier = cv2.CascadeClassifier('car.xml')
-
+def stream_drone():
     myDrone.streamon()  # 동영상 촬영 시작
     cv2.namedWindow("drone")
     frame_read = myDrone.get_frame_read()
     time.sleep(2)
+    img = frame_read.frame
+    cv2.imshow("drone", img)
+    return(img)
 
-    cap = cv2.frame_read
 
-    while cap.isOpened():
+def cardetect(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        battary = myDrone.get_battery()  # battary가 30이하면 착륙
-        if battary <= 30:
-            myDrone.land()
+    #Pass frame to our car classifier
+    cars = car_classifier.detectMultiScale(gray, 1.4, 2)
 
-        time.sleep(.05)
-        # Read first frame
-        ret, frame = cap.read()
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # Extract bounding boxes for any bodies identified
+    for (x, y, w, h) in cars:
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
+        cv2.imshow('Cars', frame)
 
-        # Pass frame to our car classifier
-        cars = car_classifier.detectMultiScale(gray, 1.4, 2)
+        if (w > 150):
+            if (h > 150):
+                print("big w:" + str(w) + "    h:" + str(h) + "\n")
+                myDrone.move_forward(20)
+                time.sleep(5)
 
-        # Extract bounding boxes for any bodies identified
-        for (x, y, w, h) in cars:
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 255), 2)
-            cv2.imshow('Cars', frame)
+                if (w > 600):
+                    if (h > 600):
+                        print("down w:" + str(w) + "    h:" + str(h) + "\n")
+                        myDrone.move_down(30)
+                        time.sleep(5)
 
-        if cv2.waitKey(1) == 13:  # is the Enter Key
-            break
 
-    cap.release()
-    cv2.destroyAllWindows()
+    # img.release()
+    # cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
     myDrone = initTello() #초기 설정
-    start_drone()
-    cardetect()
 
-        
+    for i in range(3): #대충 세 번 반복해라.
+        start_drone()  # 시작해서 드론 띄우기
+
+        # Create our body classifier
+        car_classifier = cv2.CascadeClassifier('car.xml')
+        while True:
+            battary = myDrone.get_battery()  # battary가 30이하면 착륙
+            if battary <= 30:
+                myDrone.land()
+                break
+            else:
+                print("battary is ok\n")
+                cardetect(stream_drone())  # 자동차 인식 -> 앞으로 가기 -> 특정 라밸링 크기 보다 커지면 조금 내려오기 -> 내려오면 끝내기
+                # 번호판인식
+                if cv2.waitKey(1) == 13:  # is the Enter Key
+                    break
+
+        img.release()
+        cv2.destroyAllWindows()
+
