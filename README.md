@@ -1,5 +1,6 @@
 # drone
 
+### install package
 ```
 $ pip install djitellopy
 $ pip install image
